@@ -1,0 +1,22 @@
+module Synfini.Examples.Customer where
+
+data Colour = Red | Green | Blue | Yellow deriving (Show, Eq)
+
+data CustomerKey = CustomerKey
+  with
+    operator : Party
+    id : Text
+  deriving (Show, Eq, Ord)
+
+template Customer
+  with
+    operator : Party
+    id : Text
+    name : Text
+    favouriteColour : Colour
+    dob : Optional Date
+  where
+    signatory operator
+
+    key CustomerKey with .. : CustomerKey
+    maintainer key.operator

@@ -1,0 +1,35 @@
+module Synfini.Examples.Customer.Upgrade where
+
+import qualified DA.Foldable as F
+import qualified Synfini.Examples.Customer.V1 as V1
+import qualified Synfini.Examples.Customer.V2 as V2
+
+upgradeColour : V1.Colour -> V2.Colour
+upgradeColour V1.Red = V2.Red
+upgradeColour V1.Green = V2.Green
+upgradeColour V1.Blue = V2.Blue
+
+template CustomerUpgrade
+  with
+    operator : Party
+  where
+    signatory operator
+
+    key operator : Party
+    maintainer key
+
+    nonconsuming choice CustomerUpgrade_BatchUpgrade : ()
+      with
+        ids : [Text]
+      controller operator
+      do
+        F.forA_ ids $ \id -> do
+          let k = V1.CustomerKey with operator, id
+          (customerCid, customer) <- fetchByKey @V1.Customer k
+          archive customerCid
+          create V2.Customer with
+            operator
+            id
+            name = customer.name
+            favouriteColour = upgradeColour customer.favouriteColour
+            dob = None

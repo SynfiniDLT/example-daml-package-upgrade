@@ -1,0 +1,149 @@
+{-# LANGUAGE ApplicativeDo #-}
+
+module Synfini.Examples.Customer.BulkScripts (
+  CustomerPopulation(..),
+  CustomerPopulation_ArchiveBulk(..),
+  CustomerPopulation_GenerateBulk(..),
+  SetupInput(..),
+  setup,
+  BulkInput(..),
+  generateBulk,
+  upgradeBulk,
+  archiveBulk
+) where
+
+import qualified DA.Foldable as F
+import qualified DA.List as L
+import qualified DA.Text as TX
+import DA.Time (RelTime)
+import Daml.Script
+import Synfini.Examples.Customer.Upgrade
+import qualified Synfini.Examples.Customer.V1 as V1
+import qualified Synfini.Examples.Customer.V2 as V2
+
+genContract : Party -> Text -> Update Text
+genContract operator seed = do
+  let id = TX.sha256 seed
+  let [firstChar] = TX.toCodePoints (TX.take 1 id)
+  let favouriteColour = case firstChar % 3 of
+        0 -> V1.Red
+        1 -> V1.Green
+        2 -> V1.Blue
+  create V1.Customer with operator, id, name = TX.take 5 id, favouriteColour
+  pure id
+
+genContracts : Party -> Text -> Int -> Update Text
+genContracts _ seed n | n <= 0 = pure seed
+genContracts operator seed n = do
+  id <- genContract operator seed
+  genContracts operator id (n - 1)
+
+archiveContract : Party -> Text -> Update Text
+archiveContract operator seed = do
+  let id = TX.sha256 seed
+  let k1 = V1.CustomerKey with operator, id
+      k2 = V2.CustomerKey with operator, id
+  customerCidOpt1 <- lookupByKey @V1.Customer k1
+  F.forA_ customerCidOpt1 archive
+  customerCidOpt2 <- lookupByKey @V2.Customer k2
+  F.forA_ customerCidOpt2 archive
+  pure id
+
+archiveContracts : Party -> Text -> Int -> Update Text
+archiveContracts _ seed n | n <= 0 = pure seed
+archiveContracts operator seed n = do
+  id <- archiveContract operator seed
+  archiveContracts operator id (n - 1)
+
+template CustomerPopulation
+  with
+    operator : Party
+  where
+    signatory operator
+
+    key operator : Party
+    maintainer key
+
+    nonconsuming choice CustomerPopulation_GenerateBulk : Text
+      with
+        seed : Text
+        numContracts : Int
+      controller operator
+      do
+        genContracts operator seed numContracts
+
+    nonconsuming choice CustomerPopulation_ArchiveBulk : Text
+      with
+        seed : Text
+        numContracts : Int
+      controller operator
+      do
+        archiveContracts operator seed numContracts
+
+data SetupInput = SetupInput
+  with
+    operator : Party
+  deriving (Show, Eq)
+
+setup : SetupInput -> Script ()
+setup input = do
+  submit input.operator do
+    createCmd CustomerPopulation with operator = input.operator
+    createCmd CustomerUpgrade with operator = input.operator
+    pure ()
+
+data BulkInput = BulkInput
+  with
+    operator : Party
+    seed : Text
+    numContracts : Int
+    batchSize : Int
+    sleepTime : RelTime
+  deriving (Show, Eq)
+
+generateRounds : Party -> RelTime -> Text -> Int -> Int -> Script ()
+generateRounds _ _ _ remaining _ | remaining <= 0 = pure ()
+generateRounds operator sleepTime seed remaining batchSize = do
+  seed' <- submit operator $
+    exerciseByKeyCmd @CustomerPopulation operator CustomerPopulation_GenerateBulk with
+      seed
+      numContracts = min remaining batchSize
+  sleep sleepTime
+  generateRounds operator sleepTime seed' (remaining - batchSize) batchSize
+
+generateBulk : BulkInput -> Script ()
+generateBulk input = do
+  generateRounds input.operator input.sleepTime input.seed input.numContracts input.batchSize
+  pure ()
+
+upgradeRounds : Party -> RelTime -> Text -> Int -> Int -> Script ()
+upgradeRounds _ _ _ remaining _ | remaining <= 0 = pure ()
+upgradeRounds operator sleepTime seed remaining batchSize = do
+  let ids = genBatch seed (min remaining batchSize) []
+  submit operator $
+    exerciseByKeyCmd @CustomerUpgrade operator CustomerUpgrade_BatchUpgrade with ids
+  sleep sleepTime
+  upgradeRounds operator sleepTime (L.head ids) (remaining - batchSize) batchSize
+
+genBatch : Text -> Int -> [Text] -> [Text]
+genBatch _ n ids | n <= 0 = ids
+genBatch seed n ids =
+  let id = TX.sha256 seed in
+  genBatch id (n - 1) (id :: ids)
+
+upgradeBulk : BulkInput -> Script ()
+upgradeBulk input = do
+  upgradeRounds input.operator input.sleepTime input.seed input.numContracts input.batchSize
+
+archiveRounds : Party -> RelTime -> Text -> Int -> Int -> Script ()
+archiveRounds _ _ _ remaining _ | remaining <= 0 = pure ()
+archiveRounds operator sleepTime seed remaining batchSize = do
+  seed' <- submit operator $ exerciseByKeyCmd @CustomerPopulation operator CustomerPopulation_ArchiveBulk with
+    seed
+    numContracts = min remaining batchSize
+  sleep sleepTime
+  archiveRounds operator sleepTime seed' (remaining - batchSize) batchSize
+
+archiveBulk : BulkInput -> Script ()
+archiveBulk input = do
+  archiveRounds input.operator input.sleepTime input.seed input.numContracts input.batchSize
