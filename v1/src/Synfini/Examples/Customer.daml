@@ -1,8 +1,5 @@
 module Synfini.Examples.Customer where
 
-import qualified DA.Foldable as F
-import qualified DA.Text as TX
-
 data Colour = Red | Green | Blue deriving (Show, Eq)
 
 data CustomerKey = CustomerKey

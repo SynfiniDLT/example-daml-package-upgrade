@@ -9,8 +9,8 @@ dependencies:
   - daml-prim
   - daml-stdlib
 data-dependencies:
-  - ../synfini-examples-package-v1.dar
-  - ../synfini-examples-package-v2.dar
+  - ../.build/synfini-examples-package-v1.dar
+  - ../.build/synfini-examples-package-v2.dar
 build-options: [
   "--package", "synfini-examples-package-1.0.0 with (Synfini.Examples.Customer as Synfini.Examples.Customer.V1)",
   "--package", "synfini-examples-package-2.0.0 with (Synfini.Examples.Customer as Synfini.Examples.Customer.V2)",
