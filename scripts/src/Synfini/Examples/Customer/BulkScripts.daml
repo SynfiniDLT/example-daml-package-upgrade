@@ -13,47 +13,34 @@ module Synfini.Examples.Customer.BulkScripts (
 ) where
 
 import qualified DA.Foldable as F
-import qualified DA.List as L
-import qualified DA.Text as TX
 import DA.Time (RelTime)
 import Daml.Script
 import Synfini.Examples.Customer.Upgrade
 import qualified Synfini.Examples.Customer.V1 as V1
 import qualified Synfini.Examples.Customer.V2 as V2
 
-genContract : Party -> Text -> Update Text
-genContract operator seed = do
-  let id = TX.sha256 seed
-  let [firstChar] = TX.toCodePoints (TX.take 1 id)
-  let favouriteColour = case firstChar % 3 of
+identifier : Text -> Int -> Text
+identifier entropy index = entropy <> "-" <> show index
+
+genContract : Party -> Text -> Int -> Update ()
+genContract operator entropy index = do
+  let id = identifier entropy index
+  let favouriteColour = case index % 3 of
         0 -> V1.Red
         1 -> V1.Green
         2 -> V1.Blue
-  create V1.Customer with operator, id, name = TX.take 5 id, favouriteColour
-  pure id
+  create V1.Customer with operator, id, name = "Test customer " <> show index, favouriteColour
+  pure ()
 
-genContracts : Party -> Text -> Int -> Update Text
-genContracts _ seed n | n <= 0 = pure seed
-genContracts operator seed n = do
-  id <- genContract operator seed
-  genContracts operator id (n - 1)
-
-archiveContract : Party -> Text -> Update Text
-archiveContract operator seed = do
-  let id = TX.sha256 seed
+archiveContract : Party -> Text -> Int -> Update ()
+archiveContract operator entropy index = do
+  let id = identifier entropy index
   let k1 = V1.CustomerKey with operator, id
       k2 = V2.CustomerKey with operator, id
   customerCidOpt1 <- lookupByKey @V1.Customer k1
   F.forA_ customerCidOpt1 archive
   customerCidOpt2 <- lookupByKey @V2.Customer k2
   F.forA_ customerCidOpt2 archive
-  pure id
-
-archiveContracts : Party -> Text -> Int -> Update Text
-archiveContracts _ seed n | n <= 0 = pure seed
-archiveContracts operator seed n = do
-  id <- archiveContract operator seed
-  archiveContracts operator id (n - 1)
 
 template CustomerPopulation
   with
@@ -64,21 +51,23 @@ template CustomerPopulation
     key operator : Party
     maintainer key
 
-    nonconsuming choice CustomerPopulation_GenerateBulk : Text
+    nonconsuming choice CustomerPopulation_GenerateBulk : ()
       with
-        seed : Text
-        numContracts : Int
+        entropy : Text
+        startIndex : Int
+        endIndex : Int
       controller operator
       do
-        genContracts operator seed numContracts
+        F.mapA_ (genContract operator entropy) [startIndex..endIndex]
 
-    nonconsuming choice CustomerPopulation_ArchiveBulk : Text
+    nonconsuming choice CustomerPopulation_ArchiveBulk : ()
       with
-        seed : Text
-        numContracts : Int
+        entropy : Text
+        startIndex : Int
+        endIndex : Int
       controller operator
       do
-        archiveContracts operator seed numContracts
+        F.mapA_ (archiveContract operator entropy) [startIndex..endIndex]
 
 data SetupInput = SetupInput
   with
@@ -95,55 +84,46 @@ setup input = do
 data BulkInput = BulkInput
   with
     operator : Party
-    seed : Text
+    entropy : Text
     numContracts : Int
     batchSize : Int
-    sleepTime : RelTime
+    sleepTime : Optional RelTime
   deriving (Show, Eq)
 
-generateRounds : Party -> RelTime -> Text -> Int -> Int -> Script ()
-generateRounds _ _ _ remaining _ | remaining <= 0 = pure ()
-generateRounds operator sleepTime seed remaining batchSize = do
-  seed' <- submit operator $
-    exerciseByKeyCmd @CustomerPopulation operator CustomerPopulation_GenerateBulk with
-      seed
-      numContracts = min remaining batchSize
-  sleep sleepTime
-  generateRounds operator sleepTime seed' (remaining - batchSize) batchSize
+exerciseGenBulk : BulkInput -> Int -> Script ()
+exerciseGenBulk input startIndex = do
+  F.forA_ input.sleepTime sleep
+  submit input.operator do
+    exerciseByKeyCmd @CustomerPopulation input.operator CustomerPopulation_GenerateBulk with
+      entropy = input.entropy
+      startIndex
+      endIndex = (min input.numContracts (startIndex + input.batchSize)) - 1
 
 generateBulk : BulkInput -> Script ()
 generateBulk input = do
-  generateRounds input.operator input.sleepTime input.seed input.numContracts input.batchSize
-  pure ()
+  F.mapA_ (exerciseGenBulk input) [0,input.batchSize..input.numContracts - 1]
 
-upgradeRounds : Party -> RelTime -> Text -> Int -> Int -> Script ()
-upgradeRounds _ _ _ remaining _ | remaining <= 0 = pure ()
-upgradeRounds operator sleepTime seed remaining batchSize = do
-  let ids = genBatch seed (min remaining batchSize) []
-  submit operator $
-    exerciseByKeyCmd @CustomerUpgrade operator CustomerUpgrade_BatchUpgrade with ids
-  sleep sleepTime
-  upgradeRounds operator sleepTime (L.head ids) (remaining - batchSize) batchSize
-
-genBatch : Text -> Int -> [Text] -> [Text]
-genBatch _ n ids | n <= 0 = ids
-genBatch seed n ids =
-  let id = TX.sha256 seed in
-  genBatch id (n - 1) (id :: ids)
+exerciseUpgradeBulk : BulkInput -> Int -> Script ()
+exerciseUpgradeBulk input startIndex = do
+  F.forA_ input.sleepTime sleep
+  let endIndex = (min input.numContracts (startIndex + input.batchSize)) - 1
+  submit input.operator do
+    exerciseByKeyCmd @CustomerUpgrade input.operator CustomerUpgrade_BatchUpgrade with
+      ids = (identifier input.entropy) <$> [startIndex..endIndex]
 
 upgradeBulk : BulkInput -> Script ()
 upgradeBulk input = do
-  upgradeRounds input.operator input.sleepTime input.seed input.numContracts input.batchSize
+  F.mapA_ (exerciseUpgradeBulk input) [0,input.batchSize..input.numContracts - 1]
 
-archiveRounds : Party -> RelTime -> Text -> Int -> Int -> Script ()
-archiveRounds _ _ _ remaining _ | remaining <= 0 = pure ()
-archiveRounds operator sleepTime seed remaining batchSize = do
-  seed' <- submit operator $ exerciseByKeyCmd @CustomerPopulation operator CustomerPopulation_ArchiveBulk with
-    seed
-    numContracts = min remaining batchSize
-  sleep sleepTime
-  archiveRounds operator sleepTime seed' (remaining - batchSize) batchSize
+exerciseArchiveBulk : BulkInput -> Int -> Script ()
+exerciseArchiveBulk input startIndex = do
+  F.forA_ input.sleepTime sleep
+  submit input.operator do
+    exerciseByKeyCmd @CustomerPopulation input.operator CustomerPopulation_ArchiveBulk with
+      entropy = input.entropy
+      startIndex
+      endIndex = (min input.numContracts (startIndex + input.batchSize)) - 1
 
 archiveBulk : BulkInput -> Script ()
 archiveBulk input = do
-  archiveRounds input.operator input.sleepTime input.seed input.numContracts input.batchSize
+  F.mapA_ (exerciseArchiveBulk input) [0,input.batchSize..input.numContracts - 1]
