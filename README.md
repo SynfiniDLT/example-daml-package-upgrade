@@ -11,7 +11,7 @@ multi-signatory template could be added.
 ## Introduction
 
 Let us say we have a template `T` from package `P` and some contract instances of `T` are created. If we then modify
-any of the source code files of `P` or modify any of its dependencies, then we have created a new template `T'` within a new package `P'`. Note, this applies even if `T'` has exactly the same schema, choices and stakeholders as the original `T`. The Daml ledger will treat contract instances of `T` and `T'` as through they are instances of unrelated templates,
+any of the source code files of `P` or modify any of its dependencies, then we have created a new template `T'` within a new package `P'`. Note, this applies even if `T'` has exactly the same schema, choices and stakeholders as the original `T`. The Daml ledger will treat contract instances of `T` and `T'` as though they are instances of unrelated templates,
 making them incompatible. The instances of `T` must be archived and corresponding instances of `T'` should be created,
 as it will be impractical to deal with instances of both `T` and `T'` on the ledger. This project provides sample Daml code which performs the upgrade.
 
@@ -22,11 +22,11 @@ modify these terms.
 
 The project is divided into separate Daml packages within each of these directories:
 
-- v1: Version 1 of the sample Daml model.
-- v2: Version 2 of the sample Daml model.
-- upgrade: Daml model which imports both versions of the Daml model and has a choice to upgrade contract instances.
-- scripts: Daml scripts which can populate the ledger with test contracts and execute the upgrade of the contracts.
-- test: Unit tests to sanity check the scripts are working as expected.
+- `v1`: Version 1 of the sample Daml model.
+- `v2`: Version 2 of the sample Daml model.
+- `upgrade`: Daml model which imports both versions of the Daml model and has a choice to upgrade contract instances.
+- `scripts`: Daml scripts which can populate the ledger with test contracts and execute the upgrade of the contracts.
+- `test`: Unit tests to sanity check the scripts are working as expected.
 
 ## Build
 
@@ -91,7 +91,7 @@ daml script \
 ```
 
 After running the above script you can run the upgrade process. You can copy the JSON file used for the contract
-generation scruot, and modify the batch size if required. Within each transaction, `batchSize` contracts will be
+generation script, and modify the batch size if required. Within each transaction, `batchSize` contracts will be
 upgraded. It will only upgrade contracts generated using the `entropy` specified in the JSON file. You can run the
 upgrade script using:
 
