@@ -15,7 +15,7 @@ any of the source code files of `P` or modify any of its dependencies, then we h
 making them incompatible. The instances of `T` must be archived and corresponding instances of `T'` should be created,
 as it will be impractical to deal with instances of both `T` and `T'` on the ledger. This project provides sample Daml code which performs the upgrade.
 
-Note that the incompatiblity of `T` and `T'` is by design: all contract stakeholders should know exactly what the (codified) terms are of the contract they are interacting with. Any changes to the package or its depenencies could
+Note that the incompatibility of `T` and `T'` is by design: all contract stakeholders should know exactly what the (codified) terms are of the contract they are interacting with. Any changes to the package or its dependencies could
 modify these terms.
 
 ## Project Structure
