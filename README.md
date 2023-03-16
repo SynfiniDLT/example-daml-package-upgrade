@@ -88,10 +88,10 @@ daml script \
   --tls # Remove this if the ledger is using plaintext
 ```
 
-After running the above script you can run the upgrade process. You can copy the input generation JSON file generated
-previously, and modify the batch size if required. Within each transaction, `batchSize` contracts will be upgraded. It
-will only upgrade contracts generated using the `entropy` specified in the JSON file. You can run the upgrade script
-using:
+After running the above script you can run the upgrade process. You can copy the JSON file used for the contract
+generation scruot, and modify the batch size if required. Within each transaction, `batchSize` contracts will be
+upgraded. It will only upgrade contracts generated using the `entropy` specified in the JSON file. You can run the
+upgrade script using:
 
 ```bash
 daml script \
@@ -114,7 +114,7 @@ daml script \
   --script-name Synfini.Examples.Customer.BulkScripts:archiveBulk \
   --ledger-host <LEDGER HOST> \
   --ledger-port <LEDGER PORT> \
-  --input-file generate-input.json \
+  --input-file archive-input.json \
   --access-token-file <YOUR TOKEN FILE> \ # Remove this if the ledger does not have authentication turned on
   --tls # Remove this if the ledger is using plaintext
 ```
