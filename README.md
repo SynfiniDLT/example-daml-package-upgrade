@@ -4,7 +4,9 @@
     SPDX-License-Identifier: Apache-2.0
 
 This is an example of how to perform an upgrade of a Daml package and migrate existing contracts on the ledger to the
-new package version.
+new package version. The example shows how to batch the upgrade of many contracts into one transaction for greater
+efficiency. Currently the example is limited to a single signatory template, but in future a more complex,
+multi-signatory template could be added.
 
 ## Introduction
 
@@ -118,3 +120,10 @@ daml script \
   --access-token-file <YOUR TOKEN FILE> \ # Remove this if the ledger does not have authentication turned on
   --tls # Remove this if the ledger is using plaintext
 ```
+
+## Limitations
+
+The example template only uses one signatory, but in practice there could be multiple signatories. In such cases we
+would need to create a propose-accept workflow for each set of signatories used in the application. An acceptance
+contract, signed by a set of signatories, could be used to perform a batch upgrade of all contracts which use that set
+of signatories.
