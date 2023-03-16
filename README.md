@@ -60,8 +60,21 @@ transaction we can significantly speed up the upgrade process compared to upgrad
 
 The scripts package contains
 [utility templates and Daml scripts](https://github.com/SynfiniDLT/example-daml-package-upgrade/blob/main/scripts/src/Synfini/Examples/Customer/BulkScripts.daml)
-to generate some v1 contract instances. You can generate the contracts by first creating a JSON file with the following
-structure:
+to generate some v1 contract instances.
+
+Make sure to build the DAR files first, as described previously. Then, upload the DAR file
+`.build/synfini-examples-package-upgrade-scripts.dar` to the ledger. This can be done through the daml assistant:
+
+```bash
+daml ledger upload-dar
+  --host <LEDGER HOST> \
+  --port <LEDGER PORT> \
+  --access-token-file <YOUR TOKEN FILE> \ # Remove this if the ledger does not have authentication turned on
+  --tls \ # Remove this if the ledger is using plaintext
+  .build/synfini-examples-package-upgrade-scripts.dar
+```
+
+You can generate the contracts by first creating a JSON file with the following structure:
 
 ```json
 {
@@ -77,7 +90,7 @@ so you can run it again with a different value of `entropy` without getting erro
 
 You can then run the script, making sure to set the `--input-file` option to the path of the JSON file. You can refer
 to `daml script --help` for more information on the other options. The exact options will depend on the configuration of
-the ledger you are using. Make sure to build the DAR files first, as described previously.
+the ledger you are using.
 
 ```bash
 daml script \
