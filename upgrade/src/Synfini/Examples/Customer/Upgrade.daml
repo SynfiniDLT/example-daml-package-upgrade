@@ -1,3 +1,6 @@
+-- Copyright (c) 2023 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Synfini.Examples.Customer.Upgrade where
 
 import qualified DA.Foldable as F

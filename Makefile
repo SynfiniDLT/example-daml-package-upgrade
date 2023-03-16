@@ -1,3 +1,6 @@
+# Copyright (c) 2023 ASX Operations Pty Ltd. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 .PHONY: build test clean
 
 .build/synfini-examples-package-v1.dar: v1/daml.yaml $(shell find v1 -name '*.daml')

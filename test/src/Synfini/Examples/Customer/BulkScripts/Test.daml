@@ -1,3 +1,6 @@
+-- Copyright (c) 2023 ASX Operations Pty Ltd. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Synfini.Examples.Customer.BulkScripts.Test where
 
 import Daml.Script
