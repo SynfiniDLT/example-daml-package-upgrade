@@ -4,14 +4,13 @@ module Synfini.Examples.Customer.BulkScripts (
   CustomerPopulation(..),
   CustomerPopulation_ArchiveBulk(..),
   CustomerPopulation_GenerateBulk(..),
-  SetupInput(..),
-  setup,
   BulkInput(..),
   generateBulk,
   upgradeBulk,
   archiveBulk
 ) where
 
+import qualified DA.Action as A
 import qualified DA.Foldable as F
 import DA.Time (RelTime)
 import Daml.Script
@@ -69,17 +68,14 @@ template CustomerPopulation
       do
         F.mapA_ (archiveContract operator entropy) [startIndex..endIndex]
 
-data SetupInput = SetupInput
-  with
-    operator : Party
-  deriving (Show, Eq)
-
-setup : SetupInput -> Script ()
-setup input = do
-  submit input.operator do
-    createCmd CustomerPopulation with operator = input.operator
-    createCmd CustomerUpgrade with operator = input.operator
-    pure ()
+createSetupContracts : Party -> Script ()
+createSetupContracts operator = do
+  populationContracts <- query @CustomerPopulation operator
+  A.when (null populationContracts) do
+    A.void $ submit operator do createCmd CustomerPopulation with operator
+  upgradeContracts <- query @CustomerUpgrade operator
+  A.when (null upgradeContracts) do
+    A.void $ submit operator do createCmd CustomerUpgrade with operator
 
 data BulkInput = BulkInput
   with
@@ -101,6 +97,7 @@ exerciseGenBulk input startIndex = do
 
 generateBulk : BulkInput -> Script ()
 generateBulk input = do
+  createSetupContracts input.operator
   F.mapA_ (exerciseGenBulk input) [0,input.batchSize..input.numContracts - 1]
 
 exerciseUpgradeBulk : BulkInput -> Int -> Script ()
@@ -113,6 +110,7 @@ exerciseUpgradeBulk input startIndex = do
 
 upgradeBulk : BulkInput -> Script ()
 upgradeBulk input = do
+  createSetupContracts input.operator
   F.mapA_ (exerciseUpgradeBulk input) [0,input.batchSize..input.numContracts - 1]
 
 exerciseArchiveBulk : BulkInput -> Int -> Script ()
@@ -126,4 +124,5 @@ exerciseArchiveBulk input startIndex = do
 
 archiveBulk : BulkInput -> Script ()
 archiveBulk input = do
+  createSetupContracts input.operator
   F.mapA_ (exerciseArchiveBulk input) [0,input.batchSize..input.numContracts - 1]

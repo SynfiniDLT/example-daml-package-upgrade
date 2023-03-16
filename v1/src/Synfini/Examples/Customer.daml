@@ -19,4 +19,3 @@ template Customer
 
     key CustomerKey with .. : CustomerKey
     maintainer key.operator
-

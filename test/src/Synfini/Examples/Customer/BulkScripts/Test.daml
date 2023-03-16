@@ -8,22 +8,35 @@ import qualified Synfini.Examples.Customer.V2 as V2
 withSetup : (Party -> Script a) -> Script ()
 withSetup test = do
   operator <- allocateParty "operator"
-  Scripts.setup Scripts.SetupInput with operator
   test operator
   pure ()
 
 test_generate_contracts : Script ()
 test_generate_contracts = withSetup $ \operator -> do
+  let numContracts = 10
   Scripts.generateBulk Scripts.BulkInput with
     operator
     entropy = "abc"
-    numContracts = 10
+    numContracts
     batchSize = 3
     sleepTime = None
   v1Contracts <- query @V1.Customer operator
   v2Contracts <- query @V2.Customer operator
-  assertMsg "Must have correct number of v1 contracts" (length v1Contracts == 10)
+  assertMsg "Must have correct number of v1 contracts" (length v1Contracts == numContracts)
   assertMsg "Must have no v2 contracts" (length v2Contracts == 0)
+  let numContracts' = 8
+  Scripts.generateBulk Scripts.BulkInput with
+    operator
+    entropy = "abc2"
+    numContracts = numContracts'
+    batchSize = 8
+    sleepTime = None
+  v1Contracts' <- query @V1.Customer operator
+  v2Contracts' <- query @V2.Customer operator
+  assertMsg
+    "Must have correct number of v1 contracts after generating more"
+    (length v1Contracts' == numContracts + numContracts')
+  assertMsg "Must have no v2 contracts after generating more" (length v2Contracts' == 0)
 
 test_upgrade_contracts : Script ()
 test_upgrade_contracts = withSetup $ \operator -> do
@@ -60,7 +73,7 @@ test_archive_contracts = withSetup $ \operator -> do
     operator
     entropy = "abc"
     numContracts
-    batchSize = 31
+    batchSize = 11
     sleepTime = None
   v1Contracts <- query @V1.Customer operator
   v2Contracts <- query @V2.Customer operator
