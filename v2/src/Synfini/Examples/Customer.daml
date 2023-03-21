@@ -23,3 +23,13 @@ template Customer
 
     key CustomerKey with .. : CustomerKey
     maintainer key.operator
+
+template CustomerWithoutKey
+  with
+    operator : Party
+    id : Text
+    name : Text
+    favouriteColour : Colour
+    dob : Optional Date
+  where
+    signatory operator

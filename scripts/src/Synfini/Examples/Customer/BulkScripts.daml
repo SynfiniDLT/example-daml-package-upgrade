@@ -9,7 +9,9 @@ module Synfini.Examples.Customer.BulkScripts (
   CustomerPopulation_GenerateBulk(..),
   BulkInput(..),
   generateBulk,
+  generateBulkWithoutKey,
   upgradeBulk,
+  upgradeBulkWithoutKey,
   archiveBulk
 ) where
 
@@ -24,15 +26,24 @@ import qualified Synfini.Examples.Customer.V2 as V2
 identifier : Text -> Int -> Text
 identifier entropy index = entropy <> "-" <> show index
 
+genFavouriteColour : Int -> V1.Colour
+genFavouriteColour index = case index % 3 of
+  0 -> V1.Red
+  1 -> V1.Green
+  2 -> V1.Blue
+
 genContract : Party -> Text -> Int -> Update ()
 genContract operator entropy index = do
   let id = identifier entropy index
-  let favouriteColour = case index % 3 of
-        0 -> V1.Red
-        1 -> V1.Green
-        2 -> V1.Blue
+  let favouriteColour = genFavouriteColour index
   create V1.Customer with operator, id, name = "Test customer " <> show index, favouriteColour
   pure ()
+
+genContractWithoutKey : Party -> Text -> Int -> Update (ContractId V1.CustomerWithoutKey)
+genContractWithoutKey operator entropy index = do
+  let id = identifier entropy index
+  let favouriteColour = genFavouriteColour index
+  create V1.CustomerWithoutKey with operator, id, name = "Test customer " <> show index, favouriteColour
 
 archiveContract : Party -> Text -> Int -> Update ()
 archiveContract operator entropy index = do
@@ -43,6 +54,9 @@ archiveContract operator entropy index = do
   F.forA_ customerCidOpt1 archive
   customerCidOpt2 <- lookupByKey @V2.Customer k2
   F.forA_ customerCidOpt2 archive
+
+-- archiveContractWithoutKey : Party -> ContractId V1.CustomerWithoutKey -> Update () 
+-- archiveContractWithoutKey operator cid =
 
 template CustomerPopulation
   with
@@ -62,6 +76,15 @@ template CustomerPopulation
       do
         F.mapA_ (genContract operator entropy) [startIndex..endIndex]
 
+    nonconsuming choice CustomerPopulation_GenerateBulkWithoutKey : [ContractId V1.CustomerWithoutKey]
+      with
+        entropy : Text
+        startIndex : Int
+        endIndex : Int
+      controller operator
+      do
+        mapA (genContractWithoutKey operator entropy) [startIndex..endIndex]
+
     nonconsuming choice CustomerPopulation_ArchiveBulk : ()
       with
         entropy : Text
@@ -70,6 +93,13 @@ template CustomerPopulation
       controller operator
       do
         F.mapA_ (archiveContract operator entropy) [startIndex..endIndex]
+
+    -- nonconsuming choice CustomerPopulation_ArchiveBulkWithoutKey : ()
+    --   with
+    --     cids : [ContractId V1.CustomerWithoutKey]
+    --   controller operator
+    --   do
+    --     F.mapA_ archiveContractWithoutKey cids
 
 createSetupContracts : Party -> Script ()
 createSetupContracts operator = do
@@ -103,6 +133,23 @@ generateBulk input = do
   createSetupContracts input.operator
   F.mapA_ (exerciseGenBulk input) [0,input.batchSize..input.numContracts - 1]
 
+exerciseGenBulkWithoutKey : BulkInput -> Int -> Script [ContractId V1.CustomerWithoutKey]
+exerciseGenBulkWithoutKey input startIndex = do
+  submit input.operator do
+    exerciseByKeyCmd @CustomerPopulation input.operator CustomerPopulation_GenerateBulkWithoutKey with
+      entropy = input.entropy
+      startIndex
+      endIndex = (min input.numContracts (startIndex + input.batchSize)) - 1
+
+generateBulkWithoutKey : BulkInput -> Script UpgradeBulkInputWithoutKey
+generateBulkWithoutKey input = do
+  createSetupContracts input.operator
+  contractIds <- concat <$> mapA (exerciseGenBulkWithoutKey input) [0,input.batchSize..input.numContracts - 1]
+  pure UpgradeBulkInputWithoutKey with
+    operator = input.operator
+    batchSize = input.batchSize
+    contractIds
+
 exerciseUpgradeBulk : BulkInput -> Int -> Script ()
 exerciseUpgradeBulk input startIndex = do
   F.forA_ input.sleepTime sleep
@@ -115,6 +162,25 @@ upgradeBulk : BulkInput -> Script ()
 upgradeBulk input = do
   createSetupContracts input.operator
   F.mapA_ (exerciseUpgradeBulk input) [0,input.batchSize..input.numContracts - 1]
+
+data UpgradeBulkInputWithoutKey = UpgradeBulkInputWithoutKey
+  with
+    operator : Party
+    contractIds : [ContractId V1.CustomerWithoutKey]
+    batchSize : Int
+  deriving (Show, Eq)
+
+exerciseUpgradeBulkWithoutKey : UpgradeBulkInputWithoutKey -> [ContractId V1.CustomerWithoutKey] -> Script ()
+exerciseUpgradeBulkWithoutKey _ [] = pure ()
+exerciseUpgradeBulkWithoutKey input contractIds = do
+  let batch = take input.batchSize contractIds
+  submit input.operator do
+    exerciseByKeyCmd @CustomerUpgrade input.operator CustomerUpgrade_BatchUpgradeWithoutKey with
+      cids = batch
+  exerciseUpgradeBulkWithoutKey input (drop input.batchSize contractIds)
+
+upgradeBulkWithoutKey : UpgradeBulkInputWithoutKey -> Script ()
+upgradeBulkWithoutKey input = exerciseUpgradeBulkWithoutKey input input.contractIds
 
 exerciseArchiveBulk : BulkInput -> Int -> Script ()
 exerciseArchiveBulk input startIndex = do
