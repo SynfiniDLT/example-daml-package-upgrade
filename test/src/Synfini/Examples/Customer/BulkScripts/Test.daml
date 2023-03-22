@@ -17,23 +17,21 @@ withSetup test = do
 test_generate_contracts : Script ()
 test_generate_contracts = withSetup $ \operator -> do
   let numContracts = 10
-  Scripts.generateBulk Scripts.BulkInput with
+  Scripts.generateBulk Scripts.GenerateBulkInput with
     operator
     entropy = "abc"
     numContracts
     batchSize = 3
-    sleepTime = None
   v1Contracts <- query @V1.Customer operator
   v2Contracts <- query @V2.Customer operator
   assertMsg "Must have correct number of v1 contracts" (length v1Contracts == numContracts)
   assertMsg "Must have no v2 contracts" (length v2Contracts == 0)
   let numContracts' = 8
-  Scripts.generateBulk Scripts.BulkInput with
+  Scripts.generateBulk Scripts.GenerateBulkInput with
     operator
     entropy = "abc2"
     numContracts = numContracts'
     batchSize = 8
-    sleepTime = None
   v1Contracts' <- query @V1.Customer operator
   v2Contracts' <- query @V2.Customer operator
   assertMsg
@@ -44,12 +42,11 @@ test_generate_contracts = withSetup $ \operator -> do
 test_generate_contracts_without_key : Script ()
 test_generate_contracts_without_key = withSetup $ \operator -> do
   let numContracts = 10
-  Scripts.generateBulkWithoutKey Scripts.BulkInput with
+  Scripts.generateBulkWithoutKey Scripts.GenerateBulkInputWithoutKey with
     operator
-    entropy = "abc"
     numContracts
     batchSize = 3
-    sleepTime = None
+    outputBatchSize = 3
   v1Contracts <- query @V1.CustomerWithoutKey operator
   v2Contracts <- query @V2.Customer operator
   assertMsg "Must have correct number of v1 contracts" (length v1Contracts == numContracts)
@@ -59,18 +56,16 @@ test_upgrade_contracts : Script ()
 test_upgrade_contracts = withSetup $ \operator -> do
   let entropy = "abc"
       numContracts = 30
-  Scripts.generateBulk Scripts.BulkInput with
+  Scripts.generateBulk Scripts.GenerateBulkInput with
     operator
     entropy
     numContracts
     batchSize = 5
-    sleepTime = None
-  Scripts.upgradeBulk Scripts.BulkInput with
+  Scripts.upgradeBulk Scripts.UpgradeBulkInput with
     operator
-    entropy = "abc"
+    entropy
     numContracts
     batchSize = 11
-    sleepTime = None
   v1Contracts <- query @V1.Customer operator
   v2Contracts <- query @V2.Customer operator
   assertMsg "Must no v1 contracts" (length v1Contracts == 0)
@@ -78,37 +73,14 @@ test_upgrade_contracts = withSetup $ \operator -> do
 
 test_upgrade_contracts_without_key : Script ()
 test_upgrade_contracts_without_key = withSetup $ \operator -> do
-  let entropy = "abc"
-      numContracts = 30
-  upgradeInput <- Scripts.generateBulkWithoutKey Scripts.BulkInput with
+  let numContracts = 30
+  upgradeInput <- Scripts.generateBulkWithoutKey Scripts.GenerateBulkInputWithoutKey with
     operator
-    entropy
     numContracts
     batchSize = 5
-    sleepTime = None
+    outputBatchSize = 5
   Scripts.upgradeBulkWithoutKey upgradeInput
   v1Contracts <- query @V1.CustomerWithoutKey operator
   v2Contracts <- query @V2.CustomerWithoutKey operator
   assertMsg "Must no v1 contracts" (length v1Contracts == 0)
   assertMsg "Must have correct number of v2 contracts" (length v2Contracts == numContracts)
-
-test_archive_contracts : Script ()
-test_archive_contracts = withSetup $ \operator -> do
-  let entropy = "abc"
-      numContracts = 30
-  Scripts.generateBulk Scripts.BulkInput with
-    operator
-    entropy
-    numContracts
-    batchSize = 5
-    sleepTime = None
-  Scripts.archiveBulk Scripts.BulkInput with
-    operator
-    entropy = "abc"
-    numContracts
-    batchSize = 11
-    sleepTime = None
-  v1Contracts <- query @V1.Customer operator
-  v2Contracts <- query @V2.Customer operator
-  assertMsg "Must have no v1 contracts" (length v1Contracts == 0)
-  assertMsg "Must have no v2 contracts" (length v2Contracts == 0)
