@@ -33,12 +33,6 @@ genContractWithoutKey operator index = do
   let favouriteColour = genFavouriteColour index
   create V1.CustomerWithoutKey with operator, name = "Test Customer " <> show index, favouriteColour
 
-archiveContract : Party -> Text -> Int -> Update ()
-archiveContract operator entropy index = do
-  let id = identifier entropy index
-  let k = V2.CustomerKey with operator, id
-  exerciseByKey @V2.Customer k Archive
-
 template CustomerPopulation
   with
     operator : Party
@@ -64,22 +58,6 @@ template CustomerPopulation
       controller operator
       do
         mapA (genContractWithoutKey operator) [startIndex..endIndex]
-
-    nonconsuming choice CustomerPopulation_ArchiveBulk : ()
-      with
-        entropy : Text
-        startIndex : Int
-        endIndex : Int
-      controller operator
-      do
-        F.mapA_ (archiveContract operator entropy) [startIndex..endIndex]
-
-    nonconsuming choice CustomerPopulation_ArchiveBulkWithoutKey : ()
-      with
-        contractIds : [ContractId V2.CustomerWithoutKey]
-      controller operator
-      do
-        F.mapA_ archive contractIds
 
 createSetupContracts : Party -> Script ()
 createSetupContracts operator = do

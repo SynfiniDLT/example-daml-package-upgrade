@@ -61,7 +61,7 @@ Of these, the `Customer` template uses a
 [templates](https://github.com/SynfiniDLT/example-daml-package-upgrade/blob/main/v2/src/Synfini/Examples/Customer.daml).
 Both the v1 and v2 packages are used as data dependencies by the upgade package in its
 [daml.yaml](https://github.com/SynfiniDLT/example-daml-package-upgrade/blob/main/upgrade/daml.yaml) file. The upgrade
-package has a single,
+package has a
 [template](https://github.com/SynfiniDLT/example-daml-package-upgrade/blob/main/upgrade/src/Synfini/Examples/Customer/Upgrade.daml)
 with non-consuming choices to upgrade the v1 contracts in batch. The daml.yaml file renames the v1 and v2 packages so
 that module/template name collisions do not occur when importing. The `CustomerUpgrade_BatchUpgrade` choice first
@@ -73,7 +73,7 @@ fetches the contracts by ID rather than by key.
 
 The scripts package contains
 [utility templates and Daml scripts](https://github.com/SynfiniDLT/example-daml-package-upgrade/blob/main/scripts/src/Synfini/Examples/Customer/BulkScripts.daml)
-to generate some v1 contract instances, and also upgrade the generate instances.
+to generate some v1 contract instances, and also upgrade the generated instances.
 
 Here is the dependency tree of the Daml packages:
 
@@ -96,6 +96,9 @@ daml ledger upload-dar
   --tls \ # Remove this if the ledger is using plaintext
   .build/synfini-examples-package-upgrade-scripts.dar
 ```
+
+DAR files include the main Daml package along with its dependencies, so there is no need to upload the other Daml
+packages.
 
 ### Upgrade of keyed contracts
 
@@ -148,7 +151,8 @@ daml script \
 
 ### Upgrade of keyless contracts
 
-Similiar to above, you can create another input JSON file to generate the `CustomerWithoutKey` contracts.
+Similiar to above, you can create another input JSON file to generate the `CustomerWithoutKey` contracts with the below
+structure:
 
 ```json
 {
