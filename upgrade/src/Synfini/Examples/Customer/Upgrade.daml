@@ -36,3 +36,17 @@ template CustomerUpgrade
             name = customer.name
             favouriteColour = upgradeColour customer.favouriteColour
             dob = None
+
+    nonconsuming choice CustomerUpgrade_BatchUpgradeWithoutKey : ()
+      with
+        contractIds : [ContractId V1.CustomerWithoutKey]
+      controller operator
+      do
+        F.forA_ contractIds $ \contractId -> do
+          customer <- fetch contractId
+          archive contractId
+          create V2.CustomerWithoutKey with
+            operator
+            name = customer.name
+            favouriteColour = upgradeColour customer.favouriteColour
+            dob = None
