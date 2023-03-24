@@ -178,6 +178,8 @@ structure. The value of `batchSize` is controlled by the `outputBatchSize` field
 }
 ```
 
+To generate the contracts we can run as follows:
+
 ```bash
 daml script \
   --dar .build/synfini-examples-package-upgrade-scripts.dar \
